@@ -1,0 +1,56 @@
+name: Dynamic Download ImmortalWRT 
+ 
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '输入目标版本号（例如24.10.0）'
+        required: true 
+        default: '24.10.0'
+      model_id:
+        description: '输入机型ID（例如asus_rt-ac3100）'
+        required: true 
+        default: 'asus_rt-ac3100'
+ 
+jobs:
+  download-imagebuilder:
+    runs-on: ubuntu-latest 
+    steps:
+      - name: Checkout 
+        uses: actions/checkout@v3 
+ 
+      - name: Install jq 
+        run: sudo apt-get install -y jq 
+    
+      - name: Install ZSTD tools 
+        run: sudo apt-get install zstd -y 
+ 
+      - name: Get Target Platform 
+        id: get-target 
+        run: |
+          JSON_URL="https://immortalwrt.kyarucloud.moe/releases/${{  inputs.version  }}/.overview.json" 
+          curl -s $JSON_URL -o overview.json  
+          
+          TARGET=$(jq -r --arg model "${{ inputs.model_id  }}" '
+            .profiles[] | select(.id == $model) | .target 
+          ' overview.json) 
+          
+          if [ -z "$TARGET" ]; then 
+            echo "错误：未找到机型 ${{ inputs.model_id  }}"
+            exit 1 
+          fi 
+ 
+          # 转换格式：bcm53xx/generic → bcm53xx-generic 
+          FORMATTED_TARGET=$(echo $TARGET | tr '/' '-')
+          echo "target_platform=$FORMATTED_TARGET" >> $GITHUB_OUTPUT 
+ 
+      - name: Download Package 
+        run: |
+          URL="https://immortalwrt.kyarucloud.moe/releases/${{  inputs.version  }}/targets/${{ steps.get-target.outputs.target_platform  }}/immortalwrt-imagebuilder-${{ inputs.version  }}-${{ steps.get-target.outputs.target_platform  }}.Linux-x86_64.tar.zst" 
+          wget $URL
+
+      - name: Extract archive 
+        run: |
+          tar -I zstd -xf immortalwrt-imagebuilder-*.tar.zst  
+          echo "解压完成，目录结构："
+          ls -l immortalwrt-imagebuilder-*/
