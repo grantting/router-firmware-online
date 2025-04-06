@@ -28,29 +28,30 @@ jobs:
       - name: Get Target Platform 
         id: get-target 
         run: |
-          JSON_URL="https://immortalwrt.kyarucloud.moe/releases/${{  inputs.version  }}/.overview.json" 
-          curl -s $JSON_URL -o overview.json  
+          JSON_URL="https://immortalwrt.kyarucloud.moe/releases/${{  inputs.version  }}/.overview.json"  
+          curl -s $JSON_URL -o overview.json   
           
           TARGET=$(jq -r --arg model "${{ inputs.model_id  }}" '
             .profiles[] | select(.id == $model) | .target 
-          ' overview.json) 
+          ' overview.json)  
           
           if [ -z "$TARGET" ]; then 
             echo "错误：未找到机型 ${{ inputs.model_id  }}"
             exit 1 
           fi 
  
-          # 转换格式：bcm53xx/generic → bcm53xx-generic 
+          # Save both formats (with / and -)
+          echo "target_platform_slash=$TARGET" >> $GITHUB_OUTPUT 
           FORMATTED_TARGET=$(echo $TARGET | tr '/' '-')
-          echo "target_platform=$FORMATTED_TARGET" >> $GITHUB_OUTPUT 
+          echo "target_platform_hyphen=$FORMATTED_TARGET" >> $GITHUB_OUTPUT 
  
       - name: Download Package 
         run: |
-          URL="https://immortalwrt.kyarucloud.moe/releases/${{  inputs.version  }}/targets/${{ steps.get-target.outputs.target_platform  }}/immortalwrt-imagebuilder-${{ inputs.version  }}-${{ steps.get-target.outputs.target_platform  }}.Linux-x86_64.tar.zst" 
-          wget $URL
-
+          URL="https://immortalwrt.kyarucloud.moe/releases/${{  inputs.version  }}/targets/${{ steps.get-target.outputs.target_platform_slash  }}/immortalwrt-imagebuilder-${{ inputs.version  }}-${{ steps.get-target.outputs.target_platform_hyphen  }}.Linux-x86_64.tar.zst"  
+          wget $URL 
+ 
       - name: Extract archive 
         run: |
-          tar -I zstd -xf immortalwrt-imagebuilder-*.tar.zst  
+          tar -I zstd -xf immortalwrt-imagebuilder-*.tar.zst   
           echo "解压完成，目录结构："
           ls -l immortalwrt-imagebuilder-*/
