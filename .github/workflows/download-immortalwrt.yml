@@ -79,11 +79,11 @@ jobs:
           echo "Extracted ImageBuilder:"
           ls -l immortalwrt-imagebuilder-*/
 
-      - name: Modify repositories.conf   
+      - name: Modify repositories.conf
         run: |
           cd immortalwrt-imagebuilder-* || exit 1 
         
-          ARCH_PACKAGES=$(grep 'CONFIG_TARGET_ARCH_PACKAGES=' .config | cut -d '"' -f 2)
+          ARCH_PACKAGES=$(grep 'CONFIG_TARGET_ARCH_PACKAGES=' .config | cut -d '"' -f 2) 
           echo "检测到架构包: $ARCH_PACKAGES"
           
           # 禁用签名检查 
@@ -92,17 +92,11 @@ jobs:
           # 保留原有 kenzok8 源 
           echo "src/gz openwrt_kenzok8_package https://op.dllkids.xyz/packages/$ARCH_PACKAGES/"  >> repositories.conf  
           
-          # 添加 OpenWRT 官方源 
-          echo "src/gz openwrt_core https://downloads.openwrt.org/releases/${{  inputs.version  }}/targets/${{ steps.get-target.outputs.target_platform_slash  }}/packages" >> repositories.conf  
-          echo "src/gz openwrt_base https://downloads.openwrt.org/releases/${{  inputs.version  }}/packages/$ARCH_PACKAGES/base" >> repositories.conf  
-          echo "src/gz openwrt_luci https://downloads.openwrt.org/releases/${{  inputs.version  }}/packages/$ARCH_PACKAGES/luci" >> repositories.conf  
-          echo "src/gz openwrt_packages https://downloads.openwrt.org/releases/${{  inputs.version  }}/packages/$ARCH_PACKAGES/packages" >> repositories.conf  
-          echo "src/gz openwrt_routing https://downloads.openwrt.org/releases/${{  inputs.version  }}/packages/$ARCH_PACKAGES/routing" >> repositories.conf  
+          # 添加 archive.openwrt.org  22.03 源 
+          echo "src/gz openwrt_archive_base https://archive.openwrt.org/releases/packages-22.03/$ARCH_PACKAGES/base/"  >> repositories.conf  
+          echo "src/gz openwrt_archive_packages https://archive.openwrt.org/releases/packages-22.03/$ARCH_PACKAGES/packages/"  >> repositories.conf  
+          echo "src/gz openwrt_archive_luci https://archive.openwrt.org/releases/packages-22.03/$ARCH_PACKAGES/luci/"  >> repositories.conf  
           
-          # 添加国内镜像源（清华源）
-          echo "src/gz openwrt_core_tsinghua https://mirrors.tuna.tsinghua.edu.cn/openwrt/releases/${{  inputs.version  }}/targets/${{ steps.get-target.outputs.target_platform_slash  }}/packages" >> repositories.conf  
-          echo "src/gz openwrt_base_tsinghua https://mirrors.tuna.tsinghua.edu.cn/openwrt/releases/${{  inputs.version  }}/packages/$ARCH_PACKAGES/base" >> repositories.conf  
-                      
           echo "当前软件源配置："
           cat repositories.conf  
 
