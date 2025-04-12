@@ -18,7 +18,7 @@ on:
       packages:
         description: '选择要编译的包（用空格分隔），可用 -pkg 排除包'
         required: false
-        default: 'luci-app-advancedplus luci-app-fan luci-app-filemanager luci-app-log luci-app-package-manager luci-app-upnp luci-app-wizard opkg  -luci-i18n-base-zh-cn'
+        default: 'luci-app-advancedplus luci-app-fan luci-app-filemanager luci-app-log luci-app-package-manager luci-app-upnp luci-app-wizard opkg'
 
 jobs:
   download-build:
@@ -109,7 +109,7 @@ jobs:
           
           make image \
             PROFILE="${{ inputs.model_id  }}" \
-            PACKAGES="${{ inputs.packages  }}" \
+            PACKAGES="${{ inputs.packages  }} -luci-i18n-base-zh-cn" \
             FILES=files/ \
             DISABLED_SERVICES="" \
             -j$(nproc)
