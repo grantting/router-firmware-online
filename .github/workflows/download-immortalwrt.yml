@@ -1,4 +1,4 @@
-name: Dynamic Download ImmortalWRT 
+name: Dynamic Download and Build ImmortalWRT 
  
 on:
   workflow_dispatch:
@@ -12,12 +12,12 @@ on:
         required: true 
         default: 'asus_rt-ac3100'
       packages:
-        description: '选择要编译的包（用空格分隔）'
+        description: '选择要编译的包（用空格分隔），可用 -pkg 排除包'
         required: false 
         default: 'luci-app-advancedplus luci-app-fan luci-app-filemanager luci-app-firewall luci-app-log luci-app-package-manager luci-app-syscontrol luci-app-upnp luci-app-wizard opkg'
  
 jobs:
-  download-imagebuilder:
+  download-build:
     runs-on: ubuntu-latest 
     steps:
       - name: Checkout 
@@ -26,7 +26,8 @@ jobs:
       - name: Install dependencies 
         run: |
           sudo apt-get update 
-          sudo apt-get install -y jq zstd build-essential libncurses5-dev libncursesw5-dev 
+          sudo apt-get install -y jq zstd build-essential libncurses5-dev libncursesw5-dev \
+                                 zlib1g-dev gawk git gettext libssl-dev xsltproc wget unzip python3 
  
       - name: Get Target Platform 
         id: get-target 
@@ -43,57 +44,61 @@ jobs:
             exit 1 
           fi 
  
-          # Save both formats (with / and -)
           echo "target_platform_slash=$TARGET" >> $GITHUB_OUTPUT 
           FORMATTED_TARGET=$(echo $TARGET | tr '/' '-')
           echo "target_platform_hyphen=$FORMATTED_TARGET" >> $GITHUB_OUTPUT 
  
-      - name: Download Package 
+      - name: Download ImageBuilder 
         run: |
           URL="https://immortalwrt.kyarucloud.moe/releases/${{  inputs.version  }}/targets/${{ steps.get-target.outputs.target_platform_slash  }}/immortalwrt-imagebuilder-${{ inputs.version  }}-${{ steps.get-target.outputs.target_platform_hyphen  }}.Linux-x86_64.tar.zst"   
-          wget $URL 
+          wget $URL -O imagebuilder.tar.zst  
  
-      - name: Extract archive 
+      - name: Extract ImageBuilder 
         run: |
-          tar -I zstd -xf immortalwrt-imagebuilder-*.tar.zst    
+          tar -I zstd -xf imagebuilder.tar.zst  
+          rm imagebuilder.tar.zst  
           echo "解压完成，目录结构："
           ls -l immortalwrt-imagebuilder-*/
  
       - name: Modify repositories.conf  
         run: |
-          # 进入解压后的目录 
           cd immortalwrt-imagebuilder-*
           
-          # 从 .config 文件中提取架构信息 
+          # 获取架构信息 
           ARCH_PACKAGES=$(grep 'CONFIG_TARGET_ARCH_PACKAGES=' .config | cut -d '"' -f 2)
           echo "检测到架构包: $ARCH_PACKAGES"
                     
-          # 注释掉签名检查并添加自定义源 
+          # 修改源配置 
           sed -i 's/^option check_signature/# option check_signature/' repositories.conf  
           echo "src/gz openwrt_kenzok8_package https://op.dllkids.xyz/packages/$ARCH_PACKAGES/"  >> repositories.conf  
           
-          # 显示修改后的内容 
           echo "repositories.conf  修改后内容:"
           cat repositories.conf  
           
-          # 返回工作目录 
           cd ..
  
-      - name: Compile with selected packages 
+      - name: Build Firmware 
         run: |
           cd immortalwrt-imagebuilder-*
           
-          # 将用户输入的包列表转换为数组 
-          PACKAGES=(${{ inputs.packages  }})
+          # 准备编译命令 
+          BUILD_CMD="make image \
+            PROFILE=\"${{ inputs.model_id  }}\" \
+            PACKAGES=\"${{ inputs.packages  }}\" \
+            FILES=files/ \
+            DISABLED_SERVICES=\"\""
           
-          # 构建make命令 
-          MAKE_CMD="make image PACKAGES=\"${PACKAGES[*]}\""
-          
-          echo "将要执行的编译命令: $MAKE_CMD"
+          echo "执行编译命令: $BUILD_CMD"
           
           # 执行编译 
-          eval $MAKE_CMD 
+          eval $BUILD_CMD 
           
           # 显示生成的文件 
           echo "编译完成，生成的文件:"
-          ls -l bin/targets/${{ steps.get-target.outputs.target_platform_slash  }}/
+          ls -lh bin/targets/${{ steps.get-target.outputs.target_platform_slash  }}/
+ 
+      - name: Upload Artifacts 
+        uses: actions/upload-artifact@v3 
+        with:
+          name: firmware-${{ inputs.model_id  }}-${{ inputs.version  }}
+          path: immortalwrt-imagebuilder-*/bin/targets/${{ steps.get-target.outputs.target_platform_slash  }}/ 
