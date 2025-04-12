@@ -106,9 +106,7 @@ jobs:
           ls -lh bin/targets/${{ steps.get-target.outputs.target_platform_slash  }}/
 
       - name: Upload Artifacts 
-        uses: actions/upload-artifact@v3 
-        with: 
-          name: firmware-${{ inputs.model_id  }}-${{ inputs.version  }} 
-          path: immortalwrt-imagebuilder-*/bin/targets/${{ steps.get-target.outputs.target_platform_slash  }}/ 
-          if-no-files-found: error 
-          retention-days: 7 
+        uses: actions/upload-artifact@v4 
+        with:
+          name: firmware-${{ inputs.model_id  }}-${{ inputs.version  }}
+          path: immortalwrt-imagebuilder-*/bin/targets/${{ steps.get-target.outputs.target_platform_slash  }}/
