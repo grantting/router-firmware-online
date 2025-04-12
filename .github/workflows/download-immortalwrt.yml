@@ -1,5 +1,5 @@
 name: Dynamic Download and Build ImmortalWRT 
-
+ 
 on:
   workflow_dispatch:
     inputs:
@@ -11,75 +11,75 @@ on:
         description: '选择机型ID'
         required: true 
         default: 'qihoo_360t7'
-        type: choice
+        type: choice 
         options:
-          - qihoo_360t7
-          - redmi_ax6-stock
+          - qihoo_360t7 
+          - redmi_ax6-stock 
       packages:
         description: '选择要编译的包（用空格分隔），可用 -pkg 排除包'
-        required: false
-        default: 'luci-app-advancedplus luci-app-fan luci-app-filemanager luci-app-log luci-app-package-manager luci-app-upnp luci-app-wizard opkg'
-
+        required: false 
+        default: 'luci-app-advancedplus luci-app-fan luci-app-filemanager luci-app-log luci-app-package-manager luci-app-upnp luci-app-wizard opkg default-settings'
+ 
 jobs:
   download-build:
-    runs-on: ubuntu-22.04  # Explicitly specify runner image
+    runs-on: ubuntu-22.04 
     steps:
       - name: Checkout 
-        uses: actions/checkout@v3.6.0  # Pinned version
-
-      - name: Install dependencies
+        uses: actions/checkout@v3.6.0 
+ 
+      - name: Install dependencies 
         run: |
-          sudo apt-get update -y
+          sudo apt-get update -y 
           sudo apt-get install -y \
             jq zstd build-essential libncurses5-dev libncursesw5-dev \
             zlib1g-dev gawk git gettext libssl-dev xsltproc wget unzip python3 \
-            libelf-dev
-
+            libelf-dev 
+ 
       - name: Get Target Platform 
         id: get-target 
         run: |
-          JSON_URL="https://immortalwrt.kyarucloud.moe/releases/${{  inputs.version  }}/.overview.json" 
+          JSON_URL="https://immortalwrt.kyarucloud.moe/releases/${{  inputs.version  }}/.overview.json"  
           echo "Fetching JSON from: $JSON_URL"
           
-          if ! curl -sL "$JSON_URL" -o overview.json;  then
-            echo "Failed to download overview.json" 
-            exit 1
-          fi
+          if ! curl -sL "$JSON_URL" -o overview.json;  then 
+            echo "Failed to download overview.json"  
+            exit 1 
+          fi 
           
           TARGET=$(jq -r --arg model "${{ inputs.model_id  }}" '
             .profiles[] | select(.id == $model) | .target 
-          ' overview.json)   
+          ' overview.json)    
           
           if [ -z "$TARGET" ]; then 
             echo "错误：未找到机型 ${{ inputs.model_id  }}"
             exit 1 
           fi 
-
+ 
           echo "target_platform_slash=$TARGET" >> $GITHUB_OUTPUT 
           FORMATTED_TARGET=$(echo $TARGET | tr '/' '-')
           echo "target_platform_hyphen=$FORMATTED_TARGET" >> $GITHUB_OUTPUT 
-
-      - name: Download ImageBuilder
+ 
+      - name: Download ImageBuilder 
         run: |
-          URL="https://immortalwrt.kyarucloud.moe/releases/${{  inputs.version  }}/targets/${{ steps.get-target.outputs.target_platform_slash  }}/immortalwrt-imagebuilder-${{ inputs.version  }}-${{ steps.get-target.outputs.target_platform_hyphen  }}.Linux-x86_64.tar.zst" 
+          URL="https://immortalwrt.kyarucloud.moe/releases/${{  inputs.version  }}/targets/${{ steps.get-target.outputs.target_platform_slash  }}/immortalwrt-imagebuilder-${{ inputs.version  }}-${{ steps.get-target.outputs.target_platform_hyphen  }}.Linux-x86_64.tar.zst"  
           echo "Downloading from: $URL"
           
-          if ! wget "$URL" -O imagebuilder.tar.zst;  then
+          if ! wget "$URL" -O imagebuilder.tar.zst;  then 
             echo "Failed to download ImageBuilder"
-            exit 1
-          fi
-
-      - name: Extract ImageBuilder
+            exit 1 
+          fi 
+ 
+      - name: Extract ImageBuilder 
         run: |
-          if ! tar -I zstd -xf imagebuilder.tar.zst;  then
+          if ! tar -I zstd -xf imagebuilder.tar.zst;  then 
             echo "Failed to extract ImageBuilder"
-            exit 1
-          fi
-          rm -f imagebuilder.tar.zst 
+            exit 1 
+          fi 
+          rm -f imagebuilder.tar.zst  
           echo "Extracted ImageBuilder:"
           ls -l immortalwrt-imagebuilder-*/
-
-      - name: Modify repositories.conf
+ 
+      - name: Modify repositories.conf  
         run: |
           cd immortalwrt-imagebuilder-* || exit 1 
         
@@ -87,36 +87,36 @@ jobs:
           echo "检测到架构包: $ARCH_PACKAGES"
           
           # 禁用签名检查 
-          sed -i 's/^option check_signature/# option check_signature/' repositories.conf  
+          sed -i 's/^option check_signature/# option check_signature/' repositories.conf   
           
           # 保留原有 kenzok8 源 
-          echo "src/gz openwrt_kenzok8_package https://op.dllkids.xyz/packages/$ARCH_PACKAGES/"  >> repositories.conf  
+          echo "src/gz openwrt_kenzok8_package https://op.dllkids.xyz/packages/$ARCH_PACKAGES/"  >> repositories.conf   
           
           # 添加 archive.openwrt.org  22.03 源 
-          echo "src/gz openwrt_archive_base https://archive.openwrt.org/releases/packages-22.03/$ARCH_PACKAGES/base/"  >> repositories.conf  
-          echo "src/gz openwrt_archive_packages https://archive.openwrt.org/releases/packages-22.03/$ARCH_PACKAGES/packages/"  >> repositories.conf  
-          echo "src/gz openwrt_archive_luci https://archive.openwrt.org/releases/packages-22.03/$ARCH_PACKAGES/luci/"  >> repositories.conf  
+          echo "src/gz openwrt_archive_base https://archive.openwrt.org/releases/packages-22.03/$ARCH_PACKAGES/base/"  >> repositories.conf   
+          echo "src/gz openwrt_archive_packages https://archive.openwrt.org/releases/packages-22.03/$ARCH_PACKAGES/packages/"  >> repositories.conf   
+          echo "src/gz openwrt_archive_luci https://archive.openwrt.org/releases/packages-22.03/$ARCH_PACKAGES/luci/"  >> repositories.conf   
           
           echo "当前软件源配置："
-          cat repositories.conf  
-
-      - name: Build Firmware
+          cat repositories.conf   
+ 
+      - name: Build Firmware 
         run: |
-          cd immortalwrt-imagebuilder-* || exit 1
+          cd immortalwrt-imagebuilder-* || exit 1 
           
-          echo "Building firmware for profile: ${{ inputs.model_id  }}"
-          echo "Packages: ${{ inputs.packages  }}"
+          # Clean package list to avoid conflicts 
+          CLEAN_PACKAGES=$(echo "${{ inputs.packages  }}" | sed 's/-luci-i18n-base-zh-cn//g')
           
           make image \
             PROFILE="${{ inputs.model_id  }}" \
-            PACKAGES="${{ inputs.packages  }} -luci-i18n-base-zh-cn" \
+            PACKAGES="$CLEAN_PACKAGES" \
             FILES=files/ \
             DISABLED_SERVICES="" \
             -j$(nproc)
           
           echo "Build artifacts:"
           ls -lh bin/targets/${{ steps.get-target.outputs.target_platform_slash  }}/
-
+ 
       - name: Upload Artifacts 
         uses: actions/upload-artifact@v4 
         with:
