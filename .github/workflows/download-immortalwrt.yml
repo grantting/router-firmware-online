@@ -8,9 +8,13 @@ on:
         required: true 
         default: '24.10.0'
       model_id:
-        description: '输入机型ID（例如asus_rt-ac3100）'
+        description: '选择机型ID'
         required: true 
-        default: 'asus_rt-ac3100'
+        default: 'qihoo_360t7'
+        type: choice
+        options:
+          - qihoo_360t7
+          - redmi_ax6-stock
       packages:
         description: '选择要编译的包（用空格分隔），可用 -pkg 排除包'
         required: false
