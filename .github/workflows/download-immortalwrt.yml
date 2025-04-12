@@ -18,7 +18,7 @@ on:
       packages:
         description: '选择要编译的包（用空格分隔），可用 -pkg 排除包'
         required: false
-        default: 'luci-app-advancedplus luci-app-fan luci-app-filemanager luci-app-log luci-app-package-manager luci-app-upnp luci-app-wizard opkg'
+        default: 'luci-app-advancedplus luci-app-fan luci-app-filemanager luci-app-log luci-app-package-manager luci-app-upnp luci-app-wizard opkg -luci-base'
 
 jobs:
   download-build:
@@ -79,18 +79,32 @@ jobs:
           echo "Extracted ImageBuilder:"
           ls -l immortalwrt-imagebuilder-*/
 
-      - name: Modify repositories.conf  
-        run: |
-          cd immortalwrt-imagebuilder-* || exit 1
-          
-          ARCH_PACKAGES=$(grep 'CONFIG_TARGET_ARCH_PACKAGES=' .config | cut -d '"' -f 2)
-          echo "检测到架构包: $ARCH_PACKAGES"
-                    
-          sed -i 's/^option check_signature/# option check_signature/' repositories.conf  
-          echo "src/gz openwrt_kenzok8_package https://op.dllkids.xyz/packages/$ARCH_PACKAGES/"  >> repositories.conf  
-          
-          echo "Modified repositories.conf:" 
-          cat repositories.conf  
+          - name: Modify repositories.conf   
+          run: |
+            cd immortalwrt-imagebuilder-* || exit 1 
+         
+            ARCH_PACKAGES=$(grep 'CONFIG_TARGET_ARCH_PACKAGES=' .config | cut -d '"' -f 2)
+            echo "检测到架构包: $ARCH_PACKAGES"
+            
+            # 禁用签名检查 
+            sed -i 's/^option check_signature/# option check_signature/' repositories.conf  
+            
+            # 保留原有 kenzok8 源 
+            echo "src/gz openwrt_kenzok8_package https://op.dllkids.xyz/packages/$ARCH_PACKAGES/"  >> repositories.conf  
+            
+            # 添加 OpenWRT 官方源 
+            echo "src/gz openwrt_core https://downloads.openwrt.org/releases/${{  inputs.version  }}/targets/${{ steps.get-target.outputs.target_platform_slash  }}/packages" >> repositories.conf  
+            echo "src/gz openwrt_base https://downloads.openwrt.org/releases/${{  inputs.version  }}/packages/$ARCH_PACKAGES/base" >> repositories.conf  
+            echo "src/gz openwrt_luci https://downloads.openwrt.org/releases/${{  inputs.version  }}/packages/$ARCH_PACKAGES/luci" >> repositories.conf  
+            echo "src/gz openwrt_packages https://downloads.openwrt.org/releases/${{  inputs.version  }}/packages/$ARCH_PACKAGES/packages" >> repositories.conf  
+            echo "src/gz openwrt_routing https://downloads.openwrt.org/releases/${{  inputs.version  }}/packages/$ARCH_PACKAGES/routing" >> repositories.conf  
+            
+            # 添加国内镜像源（清华源）
+            echo "src/gz openwrt_core_tsinghua https://mirrors.tuna.tsinghua.edu.cn/openwrt/releases/${{  inputs.version  }}/targets/${{ steps.get-target.outputs.target_platform_slash  }}/packages" >> repositories.conf  
+            echo "src/gz openwrt_base_tsinghua https://mirrors.tuna.tsinghua.edu.cn/openwrt/releases/${{  inputs.version  }}/packages/$ARCH_PACKAGES/base" >> repositories.conf  
+                        
+            echo "当前软件源配置："
+            cat repositories.conf  
 
       - name: Build Firmware
         run: |
