@@ -1,5 +1,5 @@
 name: Dynamic Download and Build ImmortalWRT 
- 
+
 on:
   workflow_dispatch:
     inputs:
@@ -13,34 +13,34 @@ on:
         default: 'asus_rt-ac3100'
       packages:
         description: '选择要编译的包（用空格分隔），可用 -pkg 排除包'
-        required: false 
+        required: false
         default: 'luci-app-advancedplus luci-app-fan luci-app-filemanager luci-app-firewall luci-app-log luci-app-package-manager luci-app-syscontrol luci-app-upnp luci-app-wizard opkg'
- 
+
 jobs:
   download-build:
-    runs-on: ubuntu-22.04  # Explicitly specify runner image 
+    runs-on: ubuntu-22.04  # Explicitly specify runner image
     steps:
       - name: Checkout 
-        uses: actions/checkout@v3.6.0  # Pinned version 
- 
-      - name: Install dependencies 
+        uses: actions/checkout@v3.6.0  # Pinned version
+
+      - name: Install dependencies
         run: |
-          sudo apt-get update -y 
+          sudo apt-get update -y
           sudo apt-get install -y \
             jq zstd build-essential libncurses5-dev libncursesw5-dev \
             zlib1g-dev gawk git gettext libssl-dev xsltproc wget unzip python3 \
-            libelf-dev 
- 
+            libelf-dev
+
       - name: Get Target Platform 
         id: get-target 
         run: |
           JSON_URL="https://immortalwrt.kyarucloud.moe/releases/${{  inputs.version  }}/.overview.json" 
           echo "Fetching JSON from: $JSON_URL"
           
-          if ! curl -sL "$JSON_URL" -o overview.json;  then 
+          if ! curl -sL "$JSON_URL" -o overview.json;  then
             echo "Failed to download overview.json" 
-            exit 1 
-          fi 
+            exit 1
+          fi
           
           TARGET=$(jq -r --arg model "${{ inputs.model_id  }}" '
             .profiles[] | select(.id == $model) | .target 
@@ -50,34 +50,34 @@ jobs:
             echo "错误：未找到机型 ${{ inputs.model_id  }}"
             exit 1 
           fi 
- 
+
           echo "target_platform_slash=$TARGET" >> $GITHUB_OUTPUT 
           FORMATTED_TARGET=$(echo $TARGET | tr '/' '-')
           echo "target_platform_hyphen=$FORMATTED_TARGET" >> $GITHUB_OUTPUT 
- 
-      - name: Download ImageBuilder 
+
+      - name: Download ImageBuilder
         run: |
           URL="https://immortalwrt.kyarucloud.moe/releases/${{  inputs.version  }}/targets/${{ steps.get-target.outputs.target_platform_slash  }}/immortalwrt-imagebuilder-${{ inputs.version  }}-${{ steps.get-target.outputs.target_platform_hyphen  }}.Linux-x86_64.tar.zst" 
           echo "Downloading from: $URL"
           
-          if ! wget "$URL" -O imagebuilder.tar.zst;  then 
+          if ! wget "$URL" -O imagebuilder.tar.zst;  then
             echo "Failed to download ImageBuilder"
-            exit 1 
-          fi 
- 
-      - name: Extract ImageBuilder 
+            exit 1
+          fi
+
+      - name: Extract ImageBuilder
         run: |
-          if ! tar -I zstd -xf imagebuilder.tar.zst;  then 
+          if ! tar -I zstd -xf imagebuilder.tar.zst;  then
             echo "Failed to extract ImageBuilder"
-            exit 1 
-          fi 
-          rm -f imagebuilder.tar.zst  
+            exit 1
+          fi
+          rm -f imagebuilder.tar.zst 
           echo "Extracted ImageBuilder:"
           ls -l immortalwrt-imagebuilder-*/
- 
+
       - name: Modify repositories.conf  
         run: |
-          cd immortalwrt-imagebuilder-* || exit 1 
+          cd immortalwrt-imagebuilder-* || exit 1
           
           ARCH_PACKAGES=$(grep 'CONFIG_TARGET_ARCH_PACKAGES=' .config | cut -d '"' -f 2)
           echo "检测到架构包: $ARCH_PACKAGES"
@@ -87,10 +87,10 @@ jobs:
           
           echo "Modified repositories.conf:" 
           cat repositories.conf  
- 
-      - name: Build Firmware 
+
+      - name: Build Firmware
         run: |
-          cd immortalwrt-imagebuilder-* || exit 1 
+          cd immortalwrt-imagebuilder-* || exit 1
           
           echo "Building firmware for profile: ${{ inputs.model_id  }}"
           echo "Packages: ${{ inputs.packages  }}"
@@ -104,11 +104,11 @@ jobs:
           
           echo "Build artifacts:"
           ls -lh bin/targets/${{ steps.get-target.outputs.target_platform_slash  }}/
- 
+
       - name: Upload Artifacts 
-        uses: actions/upload-artifact@v3.1.2  # Pinned version 
-        with:
-          name: firmware-${{ inputs.model_id  }}-${{ inputs.version  }}
-          path: immortalwrt-imagebuilder-*/bin/targets/${{ steps.get-target.outputs.target_platform_slash  }}/
+        uses: actions/upload-artifact@v3 
+        with: 
+          name: firmware-${{ inputs.model_id  }}-${{ inputs.version  }} 
+          path: immortalwrt-imagebuilder-*/bin/targets/${{ steps.get-target.outputs.target_platform_slash  }}/ 
           if-no-files-found: error 
           retention-days: 7 
