@@ -103,7 +103,7 @@ jobs:
           ARCH_PACKAGES=$(grep 'CONFIG_TARGET_ARCH_PACKAGES=' .config | cut -d'"' -f2)
           echo "目标架构包: $ARCH_PACKAGES"
           
-          # 生成安全的源配置 
+          # 创建干净的软件源配置 
           cat > repositories.conf  <<EOF 
             src/gz immortalwrt_base https://downloads.immortalwrt.org/releases/${{  inputs.version  }}/packages/$ARCH_PACKAGES/base 
             src/gz immortalwrt_luci https://downloads.immortalwrt.org/releases/${{  inputs.version  }}/packages/$ARCH_PACKAGES/luci 
@@ -111,59 +111,43 @@ jobs:
             src/gz immortalwrt_routing https://downloads.immortalwrt.org/releases/${{  inputs.version  }}/packages/$ARCH_PACKAGES/routing 
           EOF 
           
-          # 特殊设备处理 
-          case "${{ inputs.model_id  }}" in 
-            qihoo_360t7)
-              echo "src/gz custom_kenzok8 https://op.dllkids.xyz/packages/$ARCH_PACKAGES/"  >> repositories.conf  
-              ;;
-            redmi_ax6-stock)
-              echo "src/gz custom_coolsnowwolf https://github.com/coolsnowwolf/packages/trunk/$ARCH_PACKAGES"  >> repositories.conf  
-              ;;
-          esac 
+          # 添加设备专用源（无shell语法）
+          if [ "${{ inputs.model_id  }}" = "qihoo_360t7" ]; then 
+            echo "src/gz custom_kenzok8 https://op.dllkids.xyz/packages/$ARCH_PACKAGES/"  >> repositories.conf  
+          elif [ "${{ inputs.model_id  }}" = "redmi_ax6-stock" ]; then 
+            echo "src/gz custom_coolsnowwolf https://github.com/coolsnowwolf/packages/trunk/$ARCH_PACKAGES"  >> repositories.conf  
+          fi 
           
+          # 验证配置 
           echo "最终软件源配置:"
           cat repositories.conf  
  
       - name: 分阶段编译 
         run: |
           cd imagebuilder 
-          export PATH="/usr/lib/ccache:$PATH"
-          export CCACHE_DIR="/tmp/ccache_dir"
-          export BUILD_JOBS=$(($(nproc) + 1))  # 关键修复：先计算再使用 
           
-          # 第一阶段：基础系统 
-          echo "::group::第一阶段编译（基础系统）"
+          # 基础系统+核心依赖 
           make image \
-            PROFILE="qihoo_360t7" \
-            PACKAGES="base-files luci-mod-admin-full luci-proto-ppp" \
+            PROFILE="${{ inputs.model_id  }}" \
+            PACKAGES="base-files libc libgcc luci-mod-admin-full" \
             DISABLED_SERVICES="firewall dnsmasq" \
             -j$BUILD_JOBS V=s || exit 1 
-          echo "::endgroup::"
           
-          # 第二阶段：核心组件 
-          echo "::group::第二阶段编译（核心组件）"
+          # 主要组件 
           make image \
-            PROFILE="qihoo_360t7" \
-            PACKAGES="kmod-mt7915e kmod-mt76-core wireless-regdb hostapd-common" \
+            PROFILE="${{ inputs.model_id  }}" \
+            PACKAGES="kmod-mt7915e kmod-mt76-core wireless-regdb" \
             -j$BUILD_JOBS V=s || exit 1 
-          echo "::endgroup::" 
           
-          # 第三阶段：用户定制包 
-          echo "::group::最终编译（用户包）"
-          CLEAN_PACKAGES=$(echo "luci-app-firewall luci-app-upnp dnsmasq-full" | sed -E 's/-luci-i18n-\w+//g')
+          # 用户定制包 
           make image \
-            PROFILE="qihoo_360t7" \
-            PACKAGES="$CLEAN_PACKAGES" \
+            PROFILE="${{ inputs.model_id  }}" \
+            PACKAGES="$(echo '${{ inputs.packages  }}' | sed 's/-luci-i18n-\\w+//g')" \
             FILES=files/ \
             -j$BUILD_JOBS V=s 2>&1 | tee build.log  || {
-            echo "::error::编译失败"
             grep -iE "error:|failed" build.log  | head -n 20 
             exit 1 
           }
-          echo "::endgroup::"
-          
-          echo "编译产物:"
-          ls -lh bin/targets/mediatek/filogic/
 
       - name: 上传固件 
         uses: actions/upload-artifact@v4 
