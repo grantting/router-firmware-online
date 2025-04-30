@@ -18,7 +18,7 @@ on:
       packages:
         description: '选择要编译的包（用空格分隔），可用 -pkg 排除包'
         required: false 
-        default: 'opkg'
+        default: 'opkg -luci-i18n-base-zh-cn'
  
 jobs:
   download-build:
@@ -106,13 +106,9 @@ jobs:
           
           # 解决默认设置冲突 
           echo "CONFIG_PACKAGE_default-settings-chn=y" >> .config 
-          echo "CONFIG_PACKAGE_default-settings=n" >> .config 
-          
-          # 显式禁用冲突的翻译包 
-          echo "CONFIG_PACKAGE_luci-i18n-base-zh-cn=n" >> .config 
           
           echo "当前配置修改："
-          grep -E "default-settings|luci-i18n" .config 
+          grep -E "default-settings" .config 
 
       - name: Build Firmware 
         run: |
