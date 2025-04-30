@@ -100,23 +100,24 @@ jobs:
           echo "当前软件源配置："
           cat repositories.conf   
  
-      - name: Configure default settings 
+      - name: Configure build settings 
         run: |
           cd immortalwrt-imagebuilder-* || exit 1 
-          # 启用中国区默认配置（如需国际版则改为 CONFIG_PACKAGE_default-settings=y）
+          
+          # 解决默认设置冲突 
           echo "CONFIG_PACKAGE_default-settings-chn=y" >> .config 
-          # 可选：禁用冲突包（如果不需要） 
+          echo "CONFIG_PACKAGE_default-settings=n" >> .config 
+          
+          # 显式禁用冲突的翻译包 
           echo "CONFIG_PACKAGE_luci-i18n-base-zh-cn=n" >> .config 
-          echo "当前 .config 修改内容："
-          grep "default-settings\|luci-i18n" .config 
+          
+          echo "当前配置修改："
+          grep -E "default-settings|luci-i18n" .config 
 
       - name: Build Firmware 
         run: |
           cd immortalwrt-imagebuilder-* || exit 1 
-          
-          # 清理包列表（移除冲突+去重空格）
-          CLEAN_PACKAGES=$(echo "${{ inputs.packages  }}" | sed 's/luci-i18n-base-zh-cn//g' | tr -s ' ')
-          
+                  
           make image \
             PROFILE="${{ inputs.model_id  }}" \
             PACKAGES="$CLEAN_PACKAGES" \
