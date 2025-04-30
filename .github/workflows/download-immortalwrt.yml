@@ -113,6 +113,13 @@ jobs:
       - name: Build Firmware 
         run: |
           cd immortalwrt-imagebuilder-* || exit 1 
+
+           # 删除已下载的冲突包 
+          find dl/ -name "*luci-i18n-base-zh-cn*.ipk" -delete 
+          
+          # 同时清理构建缓存 
+          rm -rf tmp/
+          echo "已清理冲突的 luci-i18n-base-zh-cn 安装包"
                   
           make image \
             PROFILE="${{ inputs.model_id  }}" \
